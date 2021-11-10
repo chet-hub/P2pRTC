@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>P2pRTC</title>
+    <script src="P2pRTC.js"></script>
+</head>
+<body>
+<script>
+
+    let client = P2pRTC.NewClient()
+    let server = P2pRTC.NewServer()
+
+    server.OnSignal = function (message) {
+        console.log("server OnSignal: " + message)
+        client.Signal(message)
+    }
+    server.OnOpen = function (connection) {
+        connection.Send("I am server")
+    }
+    server.OnMessage = function (connection, msg) {
+        console.log("server get message: " + msg)
+    }
+    server.OnError = function (err) {
+        console.log(err)
+    }
+
+
+    client.OnSignal = function (message) {
+        console.log("client OnSignal: " + message)
+        server.Signal(message)
+    }
+    client.OnOpen = function (connection) {
+        connection.Send("I am client")
+    }
+    client.OnMessage = function (connection, msg) {
+        console.log("client get message: " + msg)
+        connection.Send("from client echo: "+ msg)
+    }
+    client.OnError = function (err) {
+        console.log(err)
+    }
+
+
+</script>
+
+</body>
+</html>
