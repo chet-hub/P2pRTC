@@ -133,12 +133,12 @@ class P2pRTC {
                 Con.OnMessage(Con.dataConnection, msg.data)
             }
             d.onclose = function () {
-                Con.OnClose()
+                Con.OnClose(Con.dataConnection)
                 Con.dataChannel.Close()
                 Con.peerConnection.Close()
             }
             d.onerror = function (err) {
-                Con.OnError(err)
+                Con.OnError(Con.dataConnection,err)
             }
         }
 
@@ -374,11 +374,11 @@ class P2pRTC {
         console.debug("DataChannel[%d] Message '%s': '%s'\n", Con.dataChannel.id, Con.dataChannel.label, msg)
     }
 
-    OnClose = function () {
+    OnClose = function (dataChannel) {
         console.debug("DataChannel[%d] OnClose '%s'\n", Con.dataChannel.id, Con.dataChannel.label)
     }
 
-    OnError = function (err) {
+    OnError = function (dataChannel,err) {
         console.debug("DataChannel[%d] OnError '%s' '%s' \n", Con.dataChannel.id, Con.dataChannel.label, err)
     }
 

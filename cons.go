@@ -55,12 +55,12 @@ func run(connectTime int,isServer bool, isTrickleICE bool,webRtcConfig string, d
 	connect.OnMessage = func(dataChannel *DataConnection,msg []byte) {
 		OnMessage(dataChannel,msg)
 	}
-	connect.OnClose = func() {
+	connect.OnClose = func(dataChannel *DataConnection) {
 		OnClose(connect.dataConnection)
 		remove(connect)
 		timer.Stop()
 	}
-	connect.OnError = func(err []byte) {
+	connect.OnError = func(dataChannel *DataConnection,err []byte) {
 		OnError(connect.dataConnection,err)
 	}
 

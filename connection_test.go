@@ -45,9 +45,13 @@ func Test1_go_connect_go(t *testing.T) {
 	server.OnMessage= func(connection *DataConnection, msg []byte){
 		fmt.Printf("\tserver get message: [%s] \n", msg)
 	}
-	server.OnError= func(err []byte){
+	server.OnError= func(connection *DataConnection,err []byte){
 		fmt.Printf("\tserver OnError [%s] \n", err)
 	}
+	server.OnClose= func(connection *DataConnection){
+		fmt.Printf("\tserver OnClose\n")
+	}
+
 
 	client.OnSignal = func(message string) {
 		fmt.Printf("Signal for Server: [%s] \n", message)
@@ -60,8 +64,11 @@ func Test1_go_connect_go(t *testing.T) {
 		connection.SendText("send from client")
 		fmt.Printf("client get message: [%s] \n", msg)
 	}
-	client.OnError= func(err []byte){
+	client.OnError= func(connection *DataConnection,err []byte){
 		fmt.Printf("client OnError [%s]", err)
+	}
+	client.OnClose= func(connection *DataConnection){
+		fmt.Printf("client OnClose\n")
 	}
 
 	client.Connect()
