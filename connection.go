@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type p2pSocket struct {
+type P2pSocket struct {
 	StartTime          time.Time
 	isServer           bool
 	isTrickleICE       bool
@@ -24,17 +24,16 @@ type p2pSocket struct {
 	onNegotiationNeeded        func()
 	onCreateDataChannel        func(*webrtc.DataChannel)
 
-	dataChannel    *webrtc.DataChannel
-	dataConnection *DataConnection
+	dataChannel *webrtc.DataChannel
 
 	OnSignal  func(string)
-	OnOpen    func(*DataConnection)
-	OnMessage func(*DataConnection, []byte)
-	OnClose   func(*DataConnection)
-	OnError   func(*DataConnection,[]byte)
+	OnOpen    func(*P2pSocket)
+	OnMessage func(*P2pSocket, []byte)
+	OnClose   func(*P2pSocket)
+	OnError   func(*P2pSocket, []byte)
 }
 
-func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*p2pSocket, error) {
+func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*P2pSocket, error) {
 
 	WebRTCConfig := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -67,7 +66,7 @@ func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataCha
 	configBytes, _ = json.Marshal(WebRTCConfig)
 	log.Printf("webrtc.DataChannelInit :  '%s'\n", string(configBytes))
 
-	var Con = p2pSocket{}
+	var Con = P2pSocket{}
 	Con.isServer = isServer
 	Con.isTrickleICE = isTrickleICE
 	Con.webRTConfiguration = WebRTCConfig
@@ -77,16 +76,16 @@ func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataCha
 		log.Printf("Fire signalMessage:  '%s'\n", message)
 	}
 
-	Con.OnOpen = func(dataChannel *DataConnection) {
+	Con.OnOpen = func(dataChannel *P2pSocket) {
 		log.Printf("DataChannel[%d] OnOpen '%s'\n", Con.dataChannel.ID(), Con.dataChannel.Label())
 	}
-	Con.OnMessage = func(dataChannel *DataConnection, msg []byte) {
+	Con.OnMessage = func(dataChannel *P2pSocket, msg []byte) {
 		log.Printf("DataChannel[%d] Message '%s': '%s'\n", Con.dataChannel.ID(), Con.dataChannel.Label(), string(msg))
 	}
-	Con.OnClose = func(dataChannel *DataConnection) {
+	Con.OnClose = func(dataChannel *P2pSocket) {
 		log.Printf("DataChannel[%d] OnClose '%s'\n", Con.dataChannel.ID(), Con.dataChannel.Label())
 	}
-	Con.OnError = func(dataChannel *DataConnection,err []byte) {
+	Con.OnError = func(dataChannel *P2pSocket, err []byte) {
 		log.Printf("DataChannel[%d] OnError '%s' '%s' \n", Con.dataChannel.ID(), Con.dataChannel.Label(), string(err))
 	}
 
@@ -98,23 +97,21 @@ func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataCha
 		//}
 
 		Con.dataChannel = d
-		Con.dataConnection = &DataConnection{}
-		Con.dataConnection.dataChannel = d
 
 		d.OnOpen(func() {
-			Con.OnOpen(Con.dataConnection)
+			Con.OnOpen(&Con)
 		})
 		d.OnMessage(func(msg webrtc.DataChannelMessage) {
-			Con.OnMessage(Con.dataConnection, msg.Data)
+			Con.OnMessage(&Con, msg.Data)
 		})
 		d.OnClose(func() {
-			Con.OnClose(Con.dataConnection)
+			Con.OnClose(&Con)
 			Con.dataChannel.Close()
 			Con.peerConnection.Close()
 		})
 		d.OnError(func(err error) {
 			log.Printf(err.Error())
-			Con.OnError(Con.dataConnection,[]byte(err.Error()))
+			Con.OnError(&Con, []byte(err.Error()))
 			Con.dataChannel.Close()
 		})
 	}
@@ -151,7 +148,7 @@ func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataCha
 		if candidate != nil && Con.isTrickleICE {
 			var m, e = SignalMessage{Type: SignalCandidate, Candidate: *candidate}.String()
 			if e != nil {
-				Con.OnError(Con.dataConnection,[]byte(e.Error()))
+				Con.OnError(&Con, []byte(e.Error()))
 			} else {
 				Con.OnSignal(m)
 			}
@@ -285,7 +282,7 @@ func newP2pSocket(isServer bool, isTrickleICE bool, webRtcConfig string, dataCha
 	return &Con, nil
 }
 
-func (Con *p2pSocket) _apply(isTrickleICE bool) (webrtc.SessionDescription, error) {
+func (Con *P2pSocket) _apply(isTrickleICE bool) (webrtc.SessionDescription, error) {
 	empty := webrtc.SessionDescription{}
 	if Con.isServer {
 		return empty, nil
@@ -312,7 +309,7 @@ func (Con *p2pSocket) _apply(isTrickleICE bool) (webrtc.SessionDescription, erro
 	if Con.peerConnection.LocalDescription() != nil {
 		var m, e = SignalMessage{Type: SignalType, Description: *Con.peerConnection.LocalDescription()}.String()
 		if e != nil {
-			Con.OnError(Con.dataConnection,[]byte(e.Error()))
+			Con.OnError(Con, []byte(e.Error()))
 		} else {
 			Con.OnSignal(m)
 		}
@@ -324,7 +321,7 @@ func (Con *p2pSocket) _apply(isTrickleICE bool) (webrtc.SessionDescription, erro
 	return *Con.peerConnection.LocalDescription(), nil
 }
 
-func (Con *p2pSocket) _connect(offer webrtc.SessionDescription) error {
+func (Con *P2pSocket) _connect(offer webrtc.SessionDescription) error {
 	//offer := webrtc.SessionDescription{}
 	//utils.Decode(approveString, &offer)
 	if sdpErr := Con.peerConnection.SetRemoteDescription(offer); sdpErr != nil {
@@ -333,7 +330,7 @@ func (Con *p2pSocket) _connect(offer webrtc.SessionDescription) error {
 	return nil
 }
 
-func (Con *p2pSocket) _approve(isTrickleICE bool, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+func (Con *P2pSocket) _approve(isTrickleICE bool, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	if !Con.isServer {
 		return nil, nil
 	}
@@ -364,7 +361,7 @@ func (Con *p2pSocket) _approve(isTrickleICE bool, offer webrtc.SessionDescriptio
 	if Con.peerConnection.LocalDescription() != nil {
 		var m, e = SignalMessage{Type: SignalType, Description: *Con.peerConnection.LocalDescription()}.String()
 		if e != nil {
-			Con.OnError(Con.dataConnection,[]byte(e.Error()))
+			Con.OnError(Con, []byte(e.Error()))
 		} else {
 			Con.OnSignal(m)
 		}
@@ -374,25 +371,25 @@ func (Con *p2pSocket) _approve(isTrickleICE bool, offer webrtc.SessionDescriptio
 	return Con.peerConnection.LocalDescription(), nil
 }
 
-func NewClient(isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*p2pSocket, error) {
+func NewClient(isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*P2pSocket, error) {
 	return newP2pSocket(false, isTrickleICE, webRtcConfig, dataChannelConfig)
 }
 
-func NewServer(isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*p2pSocket, error) {
+func NewServer(isTrickleICE bool, webRtcConfig string, dataChannelConfig string) (*P2pSocket, error) {
 	return newP2pSocket(true, isTrickleICE, webRtcConfig, dataChannelConfig)
 }
 
-func (Con *p2pSocket) Connect() {
+func (Con *P2pSocket) Connect() {
 	var _, err = Con._apply(Con.isTrickleICE)
 	if err != nil {
-		Con.OnError(Con.dataConnection,[]byte(err.Error()))
+		Con.OnError(Con, []byte(err.Error()))
 	}
 }
 
-func (Con *p2pSocket) Signal(signalMsg string) {
+func (Con *P2pSocket) Signal(signalMsg string) {
 	var message = SignalMessage{}
 	if e := json.Unmarshal([]byte(signalMsg), &message); e != nil {
-		Con.OnError(Con.dataConnection,[]byte(e.Error()))
+		Con.OnError(Con, []byte(e.Error()))
 	}
 
 	if Con.isTrickleICE {
@@ -402,20 +399,20 @@ func (Con *p2pSocket) Signal(signalMsg string) {
 				if message.Description.Type == webrtc.SDPTypeOffer {
 					var _, err = Con._approve(true, message.Description)
 					if err != nil {
-						Con.OnError(Con.dataConnection,[]byte(err.Error()))
+						Con.OnError(Con, []byte(err.Error()))
 					}
 				}
 			} else {
 				var err = Con._connect(message.Description)
 				if err != nil {
-					Con.OnError(Con.dataConnection,[]byte(err.Error()))
+					Con.OnError(Con, []byte(err.Error()))
 				}
 			}
 		}
 		if message.Type == SignalCandidate {
 			var err = Con.peerConnection.AddICECandidate(message.Candidate.ToJSON())
 			if err != nil {
-				Con.OnError(Con.dataConnection,[]byte(err.Error()))
+				Con.OnError(Con, []byte(err.Error()))
 			}
 		}
 	} else {
@@ -423,14 +420,48 @@ func (Con *p2pSocket) Signal(signalMsg string) {
 		if message.Type == SignalApply { // Get apply as server, then approve the apply
 			var _, err = Con._approve(false, message.Description)
 			if err != nil {
-				Con.OnError(Con.dataConnection,[]byte(err.Error()))
+				Con.OnError(Con, []byte(err.Error()))
 			}
 		}
 		if message.Type == SignalApprove { //Get approve as client, then connect
 			var err = Con._connect(message.Description)
 			if err != nil {
-				Con.OnError(Con.dataConnection,[]byte(err.Error()))
+				Con.OnError(Con, []byte(err.Error()))
 			}
 		}
 	}
+}
+
+func (Con *P2pSocket) SendText(text string) error {
+	return Con.dataChannel.SendText(text)
+}
+func (Con *P2pSocket) Send(data []byte) error {
+	return Con.dataChannel.Send(data)
+}
+func (Con *P2pSocket) Close() error {
+	return Con.dataChannel.Close()
+}
+func (Con *P2pSocket) ID() uint16 {
+	return *Con.dataChannel.ID()
+}
+func (Con *P2pSocket) Label() string {
+	return Con.dataChannel.Label()
+}
+func (Con *P2pSocket) Ordered() bool {
+	return Con.dataChannel.Ordered()
+}
+func (Con *P2pSocket) Closing() bool {
+	return Con.dataChannel.ReadyState() == webrtc.DataChannelStateClosing
+}
+
+func (Con *P2pSocket) Connecting() bool {
+	return Con.dataChannel.ReadyState() == webrtc.DataChannelStateConnecting
+}
+
+func (Con *P2pSocket) Opened() bool {
+	return Con.dataChannel.ReadyState() == webrtc.DataChannelStateOpen
+}
+
+func (Con *P2pSocket) Closed() bool {
+	return Con.dataChannel.ReadyState() == webrtc.DataChannelStateClosed
 }

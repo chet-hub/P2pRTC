@@ -39,16 +39,16 @@ func Test1_go_connect_go(t *testing.T) {
 		fmt.Printf("Signal for Client: [%s] \n", message)
 		client.Signal(message)
 	}
-	server.OnOpen = func(connection *DataConnection){
+	server.OnOpen = func(connection *P2pSocket){
 		connection.SendText("\tsend from server")
 	}
-	server.OnMessage= func(connection *DataConnection, msg []byte){
+	server.OnMessage= func(connection *P2pSocket, msg []byte){
 		fmt.Printf("\tserver get message: [%s] \n", msg)
 	}
-	server.OnError= func(connection *DataConnection,err []byte){
+	server.OnError= func(connection *P2pSocket,err []byte){
 		fmt.Printf("\tserver OnError [%s] \n", err)
 	}
-	server.OnClose= func(connection *DataConnection){
+	server.OnClose= func(connection *P2pSocket){
 		fmt.Printf("\tserver OnClose\n")
 	}
 
@@ -57,17 +57,17 @@ func Test1_go_connect_go(t *testing.T) {
 		fmt.Printf("Signal for Server: [%s] \n", message)
 		server.Signal(message)
 	}
-	client.OnOpen = func(connection *DataConnection){
+	client.OnOpen = func(connection *P2pSocket){
 		connection.SendText("I am client")
 	}
-	client.OnMessage= func(connection *DataConnection,msg []byte){
+	client.OnMessage= func(connection *P2pSocket,msg []byte){
 		connection.SendText("send from client")
 		fmt.Printf("client get message: [%s] \n", msg)
 	}
-	client.OnError= func(connection *DataConnection,err []byte){
+	client.OnError= func(connection *P2pSocket,err []byte){
 		fmt.Printf("client OnError [%s]", err)
 	}
-	client.OnClose= func(connection *DataConnection){
+	client.OnClose= func(connection *P2pSocket){
 		fmt.Printf("client OnClose\n")
 	}
 

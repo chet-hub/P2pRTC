@@ -1,0 +1,1 @@
+go build -o webrtc.so -buildmode=c-shared  bridge.go
