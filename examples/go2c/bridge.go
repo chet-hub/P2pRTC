@@ -237,6 +237,7 @@ func listenOnClose(p2pSocket C.GoP2pSocket, cb C.GoOnOpenCb) C.int {
 	if connection, has := store[uint64(p2pSocket)]; has {
 		connection.OnClose = func(dataChannel *P2pRTC.P2pSocket) {
 			C.bridge_on_close(cb, p2pSocket)
+			delete(store,uint64(p2pSocket))
 		}
 		return 1
 	} else {
