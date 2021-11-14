@@ -3,17 +3,12 @@ package main
 /*
 #include <stddef.h>
 #include <stdint.h>
-typedef struct GoMessage
-{
-    void *data;
-    size_t data_len;
-} GoMessage;
-typedef uint64_t GoP2pSocket;
 
+typedef uint64_t GoP2pSocket;
 typedef void (*GoOnSignalCb)(GoP2pSocket p2pSocket,char *message);
 typedef void (*GoOnOpenCb)(GoP2pSocket p2pSocket);
 typedef void (*GoOnCloseCb)(GoP2pSocket p2pSocket);
-typedef void (*GoOnMessageCb)(GoP2pSocket p2pSocket, GoMessage message);
+typedef void (*GoOnMessageCb)(GoP2pSocket p2pSocket, char *message, size_t lenght);
 typedef void (*GoOnErrorCb)(GoP2pSocket p2pSocket, char *message);
 
 // Calling C function pointers is currently not supported, however you can
@@ -32,9 +27,9 @@ inline void bridge_on_close(GoOnCloseCb cb, GoP2pSocket p2pSocket)
 {
     cb(p2pSocket);
 }
-inline void bridge_on_message(GoOnMessageCb cb, GoP2pSocket p2pSocket,GoMessage message)
+inline void bridge_on_message(GoOnMessageCb cb, GoP2pSocket p2pSocket, char *message, size_t length)
 {
-    cb(p2pSocket,message);
+    cb(p2pSocket,message,length);
 }
 inline void bridge_on_error(GoOnErrorCb cb, GoP2pSocket p2pSocket,char *message)
 {
@@ -188,18 +183,6 @@ func send(p2pSocket C.GoP2pSocket, p unsafe.Pointer, length C.int) C.int {
 	}
 }
 
-//export sendText
-func sendText(p2pSocket C.GoP2pSocket, message *C.char) C.int {
-	if connection, has := store[uint64(p2pSocket)]; has {
-		if connection.SendText(C.GoString(message)) == nil {
-			return 1
-		} else {
-			return -1
-		}
-	} else {
-		return 0
-	}
-}
 
 //export listenOnSignal
 func listenOnSignal(p2pSocket C.GoP2pSocket, cb C.GoOnSignalCb) C.int {
@@ -229,11 +212,7 @@ func listenOnError(p2pSocket C.GoP2pSocket, cb C.GoOnSignalCb) C.int {
 func listenOnMessage(p2pSocket C.GoP2pSocket, cb C.GoOnMessageCb) C.int {
 	if connection, has := store[uint64(p2pSocket)]; has {
 		connection.OnMessage = func(dataChannel *P2pRTC.P2pSocket, message []byte) {
-			cMsg := C.GoMessage{
-				data:     C.CBytes(message),
-				data_len: C.ulonglong(len(message)),
-			}
-			C.bridge_on_message(cb, p2pSocket, cMsg)
+			C.bridge_on_message(cb, p2pSocket, (*C.char)(C.CBytes(message)), C.size_t(len(message)))
 		}
 		return 1
 	} else {
