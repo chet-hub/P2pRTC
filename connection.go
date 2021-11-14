@@ -432,9 +432,7 @@ func (Con *P2pSocket) Signal(signalMsg string) {
 	}
 }
 
-func (Con *P2pSocket) SendText(text string) error {
-	return Con.dataChannel.SendText(text)
-}
+
 func (Con *P2pSocket) Send(data []byte) error {
 	return Con.dataChannel.Send(data)
 }
